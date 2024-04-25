@@ -65,4 +65,89 @@ const createBook = async (req : Request, res: Response, next: NextFunction) => {
     }
 }
 
-export {createBook}
+const updateBook = async (req : Request, res: Response, next: NextFunction) => {
+    try {
+        const {title, genere} = req.body;
+        const bookId = req.params.bookId;
+
+        const book = await bookModel.findOne({ _id : bookId});
+
+        if(!book){
+            return next(createHttpError(404, "Book not found"));
+        }
+
+        const _req = req as AuthRequest;
+        if(book.author.toString() != _req.userId){
+            return next(createHttpError(403, "UnAuthorized"));   
+        }
+
+        const files = req.files as { [fieldName: string]: Express.Multer.File[] };
+        let completeCoverImage = '';
+        if(files.coverImage){
+            const fileName = files.coverImage[0].filename;
+            const coverImageMimetype = files.coverImage[0].mimetype.split("/").at(-1);
+            const filePath = path.resolve(__dirname, '../../public/data/uploads', fileName);
+            completeCoverImage = fileName;
+
+            const uploadresult = await cloudinary.uploader.upload(filePath, {
+                filename_override: fileName,
+                folder: "book-covers",
+                format : coverImageMimetype,
+            });
+
+            completeCoverImage = uploadresult.secure_url;
+            await fs.promises.unlink(filePath);
+        }
+
+        let completBookFilePath = '';
+        if(files.file){
+            const bookFileName = files.file[0].filename;
+            // const bookMimetype = files.file[0].mimetype.split("/").at(-1);
+            const bookFilePath = path.resolve(__dirname, '../../public/data/uploads', bookFileName);
+            completeCoverImage = bookFileName;
+
+            const uploadBookresult = await cloudinary.uploader.upload(bookFilePath, {
+                resource_type: 'raw',
+                filename_override: bookFileName,
+                folder: "book-pdfs",
+                format : 'pdf',
+            });
+
+            completeCoverImage = uploadBookresult.secure_url;
+            await fs.promises.unlink(bookFilePath);
+        }
+
+        const updatedBook =await bookModel.findOneAndUpdate(
+            {
+                _id: bookId,
+            },
+            {
+                title: title,
+                genere: genere,
+                coverImage: completeCoverImage ? completeCoverImage : book.coverImage,
+                file: completBookFilePath ? completBookFilePath : book.file,
+            },
+            {
+                new: true
+            }
+        )
+       
+        res.status(200).send(updatedBook);
+    } catch (error) {
+        console.log(error);
+        return next(createHttpError(500, "Error while updating Book"));
+    }
+    
+} 
+
+const getAllBooks = async (req : Request, res: Response, next: NextFunction) => {
+    try {
+        const books = await bookModel.find();
+        return res.status(200).json(books);
+    } catch (error) {
+        console.log(error);
+        return next(createHttpError(400, "Error while get all Book list"))
+    }
+}
+
+export {createBook, updateBook, getAllBooks}
