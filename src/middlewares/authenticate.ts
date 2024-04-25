@@ -23,7 +23,8 @@ const authenticate = async (req : Request, res: Response, next: NextFunction) =>
         _req.userId = decode.sub as string;
 
         next();
-    } catch (error) {
+    }
+    catch (error) {
         return next(createHttpError(401, "Token is Expired"));
     }
     
