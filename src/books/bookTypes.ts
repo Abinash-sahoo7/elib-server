@@ -7,6 +7,7 @@ export interface Book {
     genere : string;
     coverImage : string;
     file : string;
+    description: String;
     createdDate : Date;
     updatedDate : Date;
 }
